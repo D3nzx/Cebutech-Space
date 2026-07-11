@@ -52,6 +52,44 @@ git reset --soft HEAD~1
 git reset --hard HEAD
 ```
 
+### Remove Files from Git (Keep Locally)
+```bash
+# Remove a single file from Git tracking (keeps local file)
+git rm --cached filename.ext
+
+# Remove a folder from Git tracking (keeps local folder)
+git rm --cached -r folder-name/
+
+# Remove multiple files matching a pattern
+git rm --cached "*.log"
+
+# After removing, commit the change
+git commit -m "Remove files from Git tracking"
+git push
+```
+
+**Common Use Cases:**
+```bash
+# Remove .env.local if accidentally committed
+git rm --cached .env.local
+
+# Remove node_modules if accidentally committed
+git rm --cached -r node_modules/
+
+# Remove build files
+git rm --cached -r dist/
+
+# Remove all log files
+git rm --cached "*.log"
+```
+
+**Important Notes:**
+- `--cached` means "remove from Git only, keep local file"
+- Without `--cached`, it deletes the file completely
+- `-r` flag is needed for folders (recursive)
+- Always commit after removing files
+- Add removed items to .gitignore to prevent re-adding
+
 ## Project Commands
 
 ### Development
