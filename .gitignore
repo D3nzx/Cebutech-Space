@@ -25,3 +25,18 @@ dist-ssr
 
 # Exclude problematic long filename images
 src/assets/images/c__Users_*
+
+# Exclude documentation and setup files
+COPY_PASTE_COMMANDS.txt
+DEPLOYMENT_CHECKLIST.md
+DEPLOYMENT_GUIDE.md
+QUICK_COMMANDS.md
+REMOVE_FILES_GUIDE.md
+START_HERE.md
+.env.example
+
+# Exclude E&P folder
+E&P/
+
+# Exclude database data files
+database/data/
