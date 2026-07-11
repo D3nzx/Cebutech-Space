@@ -1,0 +1,299 @@
+/* Remove blue outline from password toggle button */
+.password-toggle-btn {
+  outline: none !important;
+  box-shadow: none !important;
+  -webkit-appearance: none !important;
+}
+.password-toggle-btn:focus,
+.password-toggle-btn:active,
+.password-toggle-btn:focus-visible,
+.password-toggle-btn:focus-within {
+  outline: none !important;
+  box-shadow: none !important;
+}
+.password-toggle-btn::-moz-focus-inner {
+  outline: none !important;
+  border: none !important;
+}
+
+/* Custom utility classes */
+.pb-8 {
+  padding-bottom: 7rem;
+}
+
+/* Hide scrollbar but keep scrolling functionality */
+.hide-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;  /* Chrome, Safari and Opera */
+}
+
+/* Hide disabled and hidden options in select dropdowns */
+select option[disabled][hidden] {
+  display: none !important;
+}
+
+/* Additional rule for browsers that don't respect hidden on options */
+select option[value=""][disabled] {
+  display: none !important;
+}
+
+/* Remove all outlines from sidebar buttons */
+aside button,
+aside button:focus,
+aside button:active,
+aside button:focus-visible,
+aside button:hover {
+  outline: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Remove all outlines from header toggle button */
+header button:focus,
+header button:active,
+header button:focus-visible {
+  outline: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Import globals.css after Tailwind directives */
+/* @import '../style/globals.css'; */
+/* Keep some basic styles from the original file */
+:root {
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  font-weight: 500;
+  color: #646cff;
+  text-decoration: inherit;
+}
+a:hover {
+  color: #535bf2;
+}
+
+body {
+  margin: 0;
+  display: flex;
+  flex-direction: column; /* Add this line */
+  place-items: normal;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+h1 {
+  font-size: 3.2em;
+  line-height: 1.1;
+}
+
+button {
+  border-radius: 8px;
+  border: 1px solid transparent;
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  font-weight: 500;
+  font-family: inherit;
+  background-color: #1a1a1a;
+  cursor: pointer;
+  transition: border-color 0.25s;
+}
+button:hover {
+  border-color: #646cff;
+}
+button:focus,
+button:focus-visible {
+  outline: 4px auto -webkit-focus-ring-color;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color: #213547;
+    background-color: #ffffff;
+  }
+  a:hover {
+    color: #747bff;
+  }
+  button {
+    background-color: #f9f9f9;
+  }
+}
+
+/* Prevent blinking cursor on gradient panels */
+[role="presentation"] {
+  caret-color: transparent !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+}
+
+/* Prevent cursor blinking on non-interactive elements */
+[aria-hidden="true"] {
+  caret-color: transparent !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  cursor: default !important;
+  pointer-events: none !important;
+}
+
+/* Ensure all divs with pointer-events-none don't show cursor */
+.pointer-events-none {
+  caret-color: transparent !important;
+  cursor: default !important;
+}
+
+/* Ensure all select-none elements don't show text cursor */
+.select-none {
+  caret-color: transparent !important;
+  cursor: default !important;
+}
+
+.timetable-scroll::-webkit-scrollbar {
+  height: 8px;
+}
+
+.timetable-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.timetable-scroll::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+  transition: background 0.3s ease;
+}
+
+.timetable-scroll::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.registration-request-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #94a3b8 transparent;
+}
+
+.registration-request-scroll::-webkit-scrollbar {
+  width: 10px;
+}
+
+.registration-request-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.registration-request-scroll::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.registration-request-scroll::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+/* Enable cursor for input fields */
+input,
+textarea,
+select,
+[contenteditable="true"] {
+  caret-color: auto !important;
+}
+
+/* Aggressively prevent cursor on all button elements */
+button {
+  caret-color: transparent !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+}
+
+/* Prevent cursor on SimpleSelector buttons specifically */
+button[aria-haspopup="listbox"] {
+  caret-color: transparent !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+}
+
+/* Ensure buttons never show text cursor even when focused */
+button:focus {
+  caret-color: transparent !important;
+}
+
+/* Prevent blinking cursor on ALL non-input elements globally */
+*:not(input):not(textarea):not(select):not([contenteditable="true"]) {
+  caret-color: transparent !important;
+}
+
+/* Prevent text cursor on common non-interactive elements */
+button,
+div,
+span,
+p,
+h1, h2, h3, h4, h5, h6,
+a,
+nav,
+aside,
+section,
+header,
+footer,
+li,
+ul,
+ol,
+label {
+  caret-color: transparent !important;
+}
+
+/* But allow inputs and textareas to show cursor (higher specificity) */
+input,
+textarea,
+select,
+[contenteditable="true"],
+button input,
+button textarea,
+div input,
+div textarea,
+span input,
+span textarea,
+p input,
+p textarea,
+nav input,
+nav textarea,
+aside input,
+aside textarea,
+section input,
+section textarea,
+header input,
+header textarea,
+footer input,
+footer textarea {
+  caret-color: auto !important;
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+  -ms-user-select: text !important;
+  user-select: text !important;
+}
