@@ -11,7 +11,6 @@ function CollegeManagement() {
   const [collegeName, setCollegeName] = useState("");
   const [collegeCode, setCollegeCode] = useState("");
   const [collegeDescription, setCollegeDescription] = useState("");
-  const [displayOrder, setDisplayOrder] = useState("");
   const [editingId, setEditingId] = useState(null);
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -66,7 +65,6 @@ function CollegeManagement() {
     setCollegeName("");
     setCollegeCode("");
     setCollegeDescription("");
-    setDisplayOrder("");
     setEditingId(null);
     setFormErrors({});
   };
@@ -92,14 +90,6 @@ function CollegeManagement() {
     setFormErrors((prev) => ({ ...prev, collegeDescription: "" }));
   };
 
-  const handleDisplayOrderChange = (e) => {
-    const value = e.target.value;
-    if (/^[0-9]*$/.test(value)) {
-      setDisplayOrder(value);
-      setFormErrors((prev) => ({ ...prev, displayOrder: "" }));
-    }
-  };
-
   const handleNewCollege = () => {
     resetForm();
     setShowFormModal(true);
@@ -109,7 +99,6 @@ function CollegeManagement() {
     setCollegeName(college.college_name ?? "");
     setCollegeCode(college.college_code ?? "");
     setCollegeDescription(college.description ?? "");
-    setDisplayOrder(college.display_order?.toString?.() ?? "");
     setEditingId(college.id);
     setShowFormModal(true);
   };
@@ -471,23 +460,6 @@ function CollegeManagement() {
                         {formErrors.collegeDescription && (
                           <p className="text-xs text-red-600 mt-2 font-medium">❌ {formErrors.collegeDescription}</p>
                         )}
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-bold text-slate-900 mb-2">Display Order</label>
-                        <input
-                          type="text"
-                          value={displayOrder}
-                          onChange={handleDisplayOrderChange}
-                          placeholder="(optional)"
-                          className={`w-full px-4 py-3 rounded-lg text-sm border-2 ${
-                            formErrors.displayOrder
-                              ? "border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-200 bg-red-50"
-                              : "border-slate-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white"
-                          } text-slate-900 placeholder-slate-400 font-semibold`}
-                          disabled={loading}
-                        />
-                        <p className="text-xs text-slate-600 mt-2">Display order is managed automatically if left blank</p>
                       </div>
                     </div>
                   </div>

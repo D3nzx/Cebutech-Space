@@ -5,6 +5,7 @@ import { useNavigate, Link } from 'react-router-dom';
 
 import { signUpDean, checkDeanExists } from '../../api/auth';
 import { useFormPersistence, getSavedFormData, useClearFormOnUnmount } from '../../hooks/useFormPersistence';
+import { getRegistrationErrorDetails } from '../../lib/registrationErrorUtils';
 
 function Register() {
   const [email, setEmail] = useState('');
@@ -196,15 +197,9 @@ function Register() {
     const { user, error: signUpError } = await signUpDean({ email, password, firstName, lastName });
 
     if (signUpError) {
-      let errorTitle = 'Registration Error';
-      let errorMessage = 'Registration failed. Please try again or contact support if the problem persists.';
-
-      if (signUpError.message) {
-        errorMessage = signUpError.message;
-      }
-
-      setErrorModalTitle(errorTitle);
-      setErrorModalMessage(errorMessage);
+      const { title, message } = getRegistrationErrorDetails(signUpError);
+      setErrorModalTitle(title);
+      setErrorModalMessage(message);
       setShowErrorModal(true);
       setIsLoading(false);
       return;

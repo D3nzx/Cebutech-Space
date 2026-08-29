@@ -18,15 +18,15 @@ function Dashboard({ onSectionChange, onSchedulingTabChange, programHeadData }) 
         setIsLoadingFacultyCount(true);
 
         const program = programHeadData?.program;
-        if (!program) {
+        const college = programHeadData?.college;
+        if (!program && !college) {
           setProgramFacultyCount(0);
           return;
         }
 
-        const { count, error } = await supabase
+        const { data, error } = await supabase
           .from('faculty')
-          .select('id', { count: 'exact', head: true })
-          .eq('program', program)
+          .select('id, program, college, is_active')
           .neq('is_active', false);
 
         if (error) {
@@ -35,7 +35,33 @@ function Dashboard({ onSectionChange, onSchedulingTabChange, programHeadData }) 
           return;
         }
 
-        setProgramFacultyCount(count || 0);
+        const normalize = (str) => (str || '')
+          .toString()
+          .trim()
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+
+        const sameProgramOrCollege = (facultyRow) => {
+          const targetProgram = normalize(program);
+          const targetCollege = normalize(college);
+          const facultyProgram = normalize(facultyRow?.program);
+          const facultyCollege = normalize(facultyRow?.college);
+
+          if (!targetProgram) {
+            return !!targetCollege && !!facultyCollege && facultyCollege === targetCollege;
+          }
+
+          if (!facultyProgram) {
+            return !!targetCollege && !!facultyCollege && facultyCollege === targetCollege;
+          }
+
+          return facultyProgram === targetProgram || facultyProgram.includes(targetProgram) || targetProgram.includes(facultyProgram);
+        };
+
+        const count = (data || []).filter(sameProgramOrCollege).length;
+        setProgramFacultyCount(count);
       } catch (err) {
         console.error('❌ Exception fetching program faculty count:', err);
         setProgramFacultyCount(0);
@@ -45,7 +71,7 @@ function Dashboard({ onSectionChange, onSchedulingTabChange, programHeadData }) 
     };
 
     fetchProgramFacultyCount();
-  }, [programHeadData?.program]);
+  }, [programHeadData?.program, programHeadData?.college]);
 
   useEffect(() => {
     const fetchScheduledClassesCount = async () => {

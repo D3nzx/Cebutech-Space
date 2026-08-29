@@ -145,20 +145,25 @@ function DeanNotificationsPanel({ deanId, onOpenApproval }) {
 
       // Notify Campus Director if approved
       if (isApprove) {
-        await notifyCampusDirectorForReportReview({
+        const cdNotifResult = await notifyCampusDirectorForReportReview({
           campusDirectorId: activeRequest.campus_director_id,
           approvalId: activeRequest.id,
           facultyLabel: activeRequest?.report_payload?.facultyLabel
         });
+        if (cdNotifResult.error) {
+          console.error('Failed to notify campus director:', cdNotifResult.error);
+        }
       }
       
-      // Notify Program Head
-      await notifyProgramHeadOnDecision({
+      const phNotifResult = await notifyProgramHeadOnDecision({
         programHeadId: activeRequest.program_head_id,
         approvalId: activeRequest.id,
         status,
         comment: effectiveComment
       });
+      if (phNotifResult.error) {
+        console.error('Failed to notify program head:', phNotifResult.error);
+      }
 
       // Refresh notifications
       await loadNotifications();

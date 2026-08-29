@@ -278,6 +278,80 @@ function ScheduleFormModal({
     return labels[fieldName] || fieldName;
   };
 
+  // --- Duration helpers -----------------------------------------------
+  // Required duration (hours) = LEC units * 1 hr + LAB units * 3 hr, mirrors src/api/schedules.js
+  const timeToMinutes = (timeValue) => {
+    if (!timeValue) return null;
+    const [h, m] = String(timeValue).split(':');
+    const hours = Number(h);
+    const minutes = Number(m);
+    if (Number.isNaN(hours) || Number.isNaN(minutes)) return null;
+    return hours * 60 + minutes;
+  };
+
+  const addMinutesToTime = (timeValue, minutesToAdd) => {
+    const startMinutes = timeToMinutes(timeValue);
+    if (startMinutes == null) return '';
+    const clamped = Math.max(0, Math.min(23 * 60 + 59, startMinutes + minutesToAdd));
+    const hh = String(Math.floor(clamped / 60)).padStart(2, '0');
+    const mm = String(clamped % 60).padStart(2, '0');
+    return `${hh}:${mm}`;
+  };
+
+  const formatHoursLabel = (hours) => `${hours} hour${hours === 1 ? '' : 's'}`;
+
+  const selectedOffering = React.useMemo(() => {
+    if (!formData.course_id || !formData.subject_id || !formData.offering_type) return null;
+    return (
+      courseSubjectOfferings?.find(
+        (o) =>
+          o.course_id === formData.course_id &&
+          o.subject_id === formData.subject_id &&
+          o.offering_type === formData.offering_type
+      ) || null
+    );
+  }, [formData.course_id, formData.subject_id, formData.offering_type, courseSubjectOfferings]);
+
+  const expectedDuration = React.useMemo(() => {
+    if (!selectedOffering) return null;
+    const lectureUnits = Number(selectedOffering.lecture_units ?? 0);
+    const labUnits = Number(selectedOffering.lab_units ?? 0);
+    const hours = lectureUnits * 1 + labUnits * 3;
+    if (!hours) return null;
+    return { hours, minutes: hours * 60, lectureUnits, labUnits };
+  }, [selectedOffering]);
+
+  const suggestedEndTime = React.useMemo(() => {
+    if (!expectedDuration || !formData.start_time) return '';
+    return addMinutesToTime(formData.start_time, expectedDuration.minutes);
+  }, [expectedDuration, formData.start_time]);
+
+  const durationMismatch = React.useMemo(() => {
+    if (!expectedDuration || !formData.start_time || !formData.end_time) return false;
+    const start = timeToMinutes(formData.start_time);
+    const end = timeToMinutes(formData.end_time);
+    if (start == null || end == null || end <= start) return false;
+    return (end - start) !== expectedDuration.minutes;
+  }, [expectedDuration, formData.start_time, formData.end_time]);
+
+  const applySuggestedDuration = useCallback(() => {
+    if (!expectedDuration || !formData.start_time) return;
+    const nextEndTime = addMinutesToTime(formData.start_time, expectedDuration.minutes);
+    setFormData(prev => ({ ...prev, end_time: nextEndTime }));
+    setErrors(prev => ({ ...prev, end_time: '' }));
+  }, [expectedDuration, formData.start_time]);
+
+  // Prefill End Time as soon as the required duration is known (new schedules only —
+  // editing an existing schedule should not silently overwrite its saved time slot).
+  useEffect(() => {
+    if (editingSchedule || !expectedDuration || !formData.start_time) return;
+    const start = timeToMinutes(formData.start_time);
+    const end = timeToMinutes(formData.end_time);
+    if (end == null || (end - start) !== expectedDuration.minutes) {
+      setFormData(prev => ({ ...prev, end_time: addMinutesToTime(prev.start_time, expectedDuration.minutes) }));
+    }
+  }, [expectedDuration, editingSchedule]);
+
   const validateStep = (step, shouldSetErrors = true) => {
     const newErrors = {};
     const errorMessages = [];
@@ -340,6 +414,13 @@ function ScheduleFormModal({
       if (formData.start_time && formData.end_time && formData.start_time >= formData.end_time) {
         newErrors.end_time = 'End time must be after start time';
         errorMessages.push('End Time must be after Start Time');
+        isValid = false;
+      } else if (expectedDuration && durationMismatch) {
+        const suggestion = suggestedEndTime
+          ? ` Try setting End Time to ${suggestedEndTime}, or click "Auto-fix duration" below.`
+          : '';
+        newErrors.end_time = `This subject needs ${formatHoursLabel(expectedDuration.hours)} of class time.${suggestion}`;
+        errorMessages.push(`This subject needs ${formatHoursLabel(expectedDuration.hours)} of class time.${suggestion}`);
         isValid = false;
       }
       if (!formData.location_id) {
@@ -461,6 +542,12 @@ function ScheduleFormModal({
           if (!formData.end_time) errorMessages.push('End Time is required');
           if (formData.start_time && formData.end_time && formData.start_time >= formData.end_time) {
             errorMessages.push('End Time must be after Start Time');
+          } else if (expectedDuration && durationMismatch) {
+            const suggestion = suggestedEndTime
+              ? ` Try setting End Time to ${suggestedEndTime}, or click "Auto-fix duration" below.`
+              : '';
+            errorMessages.push(`This subject needs ${formatHoursLabel(expectedDuration.hours)} of class time.${suggestion}`);
+            setErrors(prev => ({ ...prev, end_time: `This subject needs ${formatHoursLabel(expectedDuration.hours)} of class time.${suggestion}` }));
           }
           if (!formData.location_id) errorMessages.push('Room/Location is required');
         }
@@ -525,6 +612,20 @@ function ScheduleFormModal({
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+
+    if (name === 'start_time') {
+      // Auto-prefill End Time so the duration matches the subject's required units
+      setFormData(prev => {
+        const next = { ...prev, start_time: value };
+        if (expectedDuration && value) {
+          next.end_time = addMinutesToTime(value, expectedDuration.minutes);
+        }
+        return next;
+      });
+      setErrors(prev => ({ ...prev, start_time: '', end_time: '' }));
+      return;
+    }
+
     setFormData(prev => ({ ...prev, [name]: value }));
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: '' }));
@@ -1009,8 +1110,16 @@ function ScheduleFormModal({
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      <label className="flex items-center gap-1.5 text-sm font-semibold text-slate-700 mb-2">
                         Start Time
+                        {expectedDuration && (
+                          <span
+                            className="group relative inline-flex items-center text-blue-500 cursor-help"
+                            title={`This subject needs ${formatHoursLabel(expectedDuration.hours)} of class time. We'll fill in the End Time for you once you pick a Start Time.`}
+                          >
+                            <AlertCircle size={14} />
+                          </span>
+                        )}
                       </label>
                       <input
                         type="time"
@@ -1023,8 +1132,16 @@ function ScheduleFormModal({
                     </div>
 
                     <div>
-                      <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      <label className="flex items-center gap-1.5 text-sm font-semibold text-slate-700 mb-2">
                         End Time
+                        {expectedDuration && (
+                          <span
+                            className="group relative inline-flex items-center text-blue-500 cursor-help"
+                            title={`This subject needs ${formatHoursLabel(expectedDuration.hours)} of class time.`}
+                          >
+                            <AlertCircle size={14} />
+                          </span>
+                        )}
                       </label>
                       <input
                         type="time"
@@ -1032,10 +1149,49 @@ function ScheduleFormModal({
                         value={formData.end_time}
                         onChange={handleChange}
                         max="21:00"
-                        className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white"
+                        className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 transition-all bg-white ${
+                          durationMismatch
+                            ? 'border-amber-400 focus:ring-amber-400 focus:border-amber-400'
+                            : 'border-slate-300 focus:ring-blue-500 focus:border-blue-500'
+                        }`}
                       />
                     </div>
                   </div>
+
+                  {expectedDuration && (
+                    <div className="-mt-1 flex items-start gap-2.5 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                      <Clock size={16} className="text-blue-500 mt-0.5 flex-shrink-0" />
+                      <p className="text-xs text-blue-800 leading-relaxed">
+                        This subject needs <span className="font-semibold">{formatHoursLabel(expectedDuration.hours)}</span> total
+                        {' '}({expectedDuration.lectureUnits} Lecture unit(s) = {expectedDuration.lectureUnits} hr, {expectedDuration.labUnits} Lab unit(s) = {expectedDuration.labUnits * 3} hr).
+                        {' '}Just pick a Start Time and we'll set the End Time for you.
+                      </p>
+                    </div>
+                  )}
+
+                  {durationMismatch && expectedDuration && (
+                    <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-lg p-4">
+                      <AlertCircle size={18} className="text-amber-600 mt-0.5 flex-shrink-0" />
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-amber-800">
+                          Your times add up to {formatHoursLabel(Math.abs((timeToMinutes(formData.end_time) - timeToMinutes(formData.start_time)) / 60))}, but this subject needs {formatHoursLabel(expectedDuration.hours)}.
+                        </p>
+                        <p className="text-xs text-amber-700 mt-1">
+                          Try changing the Start or End Time so they're {formatHoursLabel(expectedDuration.hours)} apart
+                          {suggestedEndTime ? `, or let us set the End Time to ${suggestedEndTime} for you.` : '.'}
+                        </p>
+                      </div>
+                      {suggestedEndTime && (
+                        <button
+                          type="button"
+                          onClick={applySuggestedDuration}
+                          className="flex-shrink-0 px-3 py-1.5 text-xs font-semibold text-amber-800 bg-amber-100 hover:bg-amber-200 rounded-lg transition-colors"
+                        >
+                          Auto-fix duration
+                        </button>
+                      )}
+                    </div>
+                  )}
 
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-2">

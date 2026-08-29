@@ -122,11 +122,7 @@ function NotificationsPanel({ facultyId, onNavigateToSchedule, onNotificationsCl
 
     try {
       const channel = supabase
-        .channel(`faculty_notifications_${facultyId}`, {
-          config: {
-            broadcast: { self: true }
-          }
-        })
+        .channel(`faculty_notifications_${facultyId}`)
         // New notifications
         .on('postgres_changes', {
           event: 'INSERT',

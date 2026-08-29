@@ -10,6 +10,7 @@ import ReportsPrintView from '../../Shared/ReportsPrintView';
 const ctuCcFormat = new URL('../../../assets/images/CTU CC FORMAT.png', import.meta.url).href;
 import { createReportApprovalRequest, getRequestsForRole, deleteApprovalRequest, archiveApprovalRequest, restoreApprovalRequest } from '../../../api/reportApprovals';
 import { notifyDeanForReportReview } from '../../../api/notifications';
+import { getProgramHeadFaculty } from '../../../api/programHeadFaculty';
 
 function Reports({ programHeadData }) {
   const [schedules, setSchedules] = useState([]);
@@ -31,6 +32,7 @@ function Reports({ programHeadData }) {
   const [approvalRequests, setApprovalRequests] = useState([]);
   const [sending, setSending] = useState(false);
   const [timeNow, setTimeNow] = useState(() => Date.now());
+  const [facultyList, setFacultyList] = useState([]);
 
   const relativeTimeFormatter = useMemo(() => new Intl.RelativeTimeFormat('en', { numeric: 'auto' }), []);
 
@@ -129,6 +131,23 @@ function Reports({ programHeadData }) {
       setSchedules([]);
     }
   }, [programHeadData]);
+
+  useEffect(() => {
+    const fetchFaculty = async () => {
+      if (!programHeadData?.id) {
+        setFacultyList([]);
+        return;
+      }
+      const { data, error } = await getProgramHeadFaculty(programHeadData.id);
+      if (error) {
+        console.error('Reports.jsx: Error fetching faculty:', error);
+        setFacultyList([]);
+        return;
+      }
+      setFacultyList(data || []);
+    };
+    fetchFaculty();
+  }, [programHeadData?.id]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -241,21 +260,21 @@ function Reports({ programHeadData }) {
   };
 
   const facultyOptions = useMemo(() => {
-    if (!schedules || schedules.length === 0) return [];
+    if (!facultyList || facultyList.length === 0) return [];
     const facultyMap = new Map();
-    schedules.forEach(schedule => {
-      if (schedule.faculty) {
-        facultyMap.set(schedule.faculty.id, schedule.faculty);
+    facultyList.forEach(faculty => {
+      if (faculty) {
+        facultyMap.set(faculty.id, faculty);
       }
     });
-    const facultyList = Array.from(facultyMap.values()).sort((a, b) =>
+    const facultyListSorted = Array.from(facultyMap.values()).sort((a, b) =>
       `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`)
     );
-    return facultyList.map(faculty => ({
+    return facultyListSorted.map(faculty => ({
       label: `${faculty.first_name} ${faculty.last_name}`,
       value: faculty.id,
     }));
-  }, [schedules]);
+  }, [facultyList]);
 
   const selectedFacultyLabel = useMemo(() => {
     if (!selectedFaculty) return '';
@@ -1111,11 +1130,14 @@ function Reports({ programHeadData }) {
       });
 
       if (!error && data) {
-        await notifyDeanForReportReview({
+        const notifResult = await notifyDeanForReportReview({
           deanId: data.dean_id || deanRes.data?.id,
           approvalId: data.id,
           facultyLabel: selectedFacultyLabel
         });
+        if (notifResult.error) {
+          console.error('Failed to notify dean:', notifResult.error);
+        }
         const refreshed = await getRequestsForRole('program_head', programHeadData.id);
         setApprovalRequests(refreshed.data || []);
       } else {

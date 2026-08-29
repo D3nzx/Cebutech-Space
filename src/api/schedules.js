@@ -396,37 +396,33 @@ export const createSchedule = async (scheduleData) => {
         }
       }
 
-      console.log('🔔 Creating notification for faculty:', {
-        facultyId: scheduleData.faculty_id,
-        scheduleId: data.id,
-        subjectCode,
-        programId: scheduleData.course_id,
-        programHeadId: programHead?.id || null
-      });
+        console.log('🔔 Creating notification for faculty:', {
+          facultyId: scheduleData.faculty_id,
+          scheduleId: data.id,
+          subjectCode,
+          programId: scheduleData.course_id,
+          programHeadId: programHead?.id || null
+        });
 
-      try {
-        const notificationResult = await notifyScheduleAssigned(
-          scheduleData.faculty_id,
-          data.id,
-          { subjectCode },
-          scheduleData.course_id,
-          programHead?.id || null
-        );
+        try {
+          const notificationResult = await notifyScheduleAssigned(
+            scheduleData.faculty_id,
+            data.id,
+            { subjectCode },
+            scheduleData.course_id,
+            programHead?.id || null
+          );
 
-        console.log('✅ Notification result:', notificationResult);
-
-        if (notificationResult.error) {
-          console.error('❌ Notification creation error:', notificationResult.error);
-          console.error('   Error details:', JSON.stringify(notificationResult.error, null, 2));
-        } else if (notificationResult.data) {
-          console.log('✅ Notification created successfully:', notificationResult.data);
-        } else {
-          console.warn('⚠️ Notification result has no data or error');
+          if (notificationResult.error) {
+            console.error('❌ Notification creation error:', notificationResult.error);
+            console.error('   Error details:', JSON.stringify(notificationResult.error, null, 2));
+          } else {
+            console.log('✅ Notification created for faculty');
+          }
+        } catch (notificationError) {
+          console.error('❌ Exception creating notification:', notificationError);
+          console.error('   Error message:', notificationError.message);
         }
-      } catch (notificationError) {
-        console.error('❌ Exception creating notification:', notificationError);
-        console.error('   Error message:', notificationError.message);
-      }
     } else {
       console.warn('⚠️ Skipping faculty notification creation - schedule has no faculty_id or schedule data missing:', {
         hasData: !!data,
@@ -696,6 +692,37 @@ export const bulkCreateSchedules = async (schedulesArray) => {
       .select('*');
 
     if (error) throw error;
+
+    if (data && programHead) {
+      for (const schedule of data) {
+        if (schedule.faculty_id) {
+          try {
+            await createScheduleApproval(schedule.id, schedule.faculty_id, programHead.id);
+          } catch (approvalError) {
+            console.error('❌ Error creating schedule approval in bulk:', approvalError);
+          }
+
+          try {
+            const { data: subjectData } = await supabase
+              .from('subjects')
+              .select('subject_code')
+              .eq('id', schedule.subject_id)
+              .single();
+
+            await notifyScheduleAssigned(
+              schedule.faculty_id,
+              schedule.id,
+              { subjectCode: subjectData?.subject_code || 'Unknown Subject' },
+              schedule.course_id,
+              programHead.id
+            );
+          } catch (notificationError) {
+            console.error('❌ Error creating notification in bulk:', notificationError);
+          }
+        }
+      }
+    }
+
     return { data, error: null, conflictDetails: null };
   } catch (error) {
     console.error('Error bulk creating schedules:', error);

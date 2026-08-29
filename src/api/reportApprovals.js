@@ -15,6 +15,15 @@ const mapStatus = {
 };
 
 export const createReportApprovalRequest = async (payload) => {
+  let programHeadId = payload.programHeadId;
+  if (!programHeadId) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data: ph } = await supabase.from('program_heads').select('id').eq('auth_user_id', user.id).maybeSingle();
+      programHeadId = ph?.id;
+    }
+  }
+
   // If dean_id or campus_director_id not provided, fetch them
   let deanId = payload.deanId;
   let campusDirectorId = payload.campusDirectorId;
@@ -30,7 +39,7 @@ export const createReportApprovalRequest = async (payload) => {
   }
 
   const insertData = {
-    program_head_id: payload.programHeadId,
+    program_head_id: programHeadId,
     dean_id: deanId,
     campus_director_id: campusDirectorId,
     faculty_id: payload.facultyId,

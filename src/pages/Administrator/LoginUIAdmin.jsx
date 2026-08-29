@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { loginAdmin } from '../../api/adminAuth';
+import { loginAdmin, checkAdminLoginRateLimit, recordAdminLoginAttempt } from '../../api/adminAuth';
 import { saveRoleSession } from '../../lib/multiSessionManager';
 import CTULogo from '../../assets/svg/CTU_logo.svg';
 import { Eye, EyeOff, Shield } from 'lucide-react';
@@ -20,8 +20,11 @@ function LoginUIAdmin() {
   const [errorModalMessage, setErrorModalMessage] = useState('');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [securityNotice, setSecurityNotice] = useState('');
+  const [rateLimited, setRateLimited] = useState(false);
+  const [rateLimitRemaining, setRateLimitRemaining] = useState(0);
   const emailRef = useRef(null);
   const passwordRef = useRef(null);
+  const countdownRef = useRef(null);
   const navigate = useNavigate();
 
 
@@ -34,10 +37,16 @@ function LoginUIAdmin() {
     }
   }, []);
 
- 
-  const formDataState = { email, password };
+  
+  const formDataState = { email };
   useFormPersistence('adminLoginForm', formDataState);
   useClearFormOnUnmount('adminLoginForm');
+
+  useEffect(() => {
+    return () => {
+      if (countdownRef.current) clearInterval(countdownRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     document.title = 'CTU Portal | Administrator Login';
@@ -64,6 +73,21 @@ function LoginUIAdmin() {
     } else if (newErrors.password && passwordRef.current) {
       passwordRef.current.focus();
     }
+  };
+
+  const startRateLimitCountdown = (seconds) => {
+    setRateLimited(true);
+    setRateLimitRemaining(seconds);
+    countdownRef.current = setInterval(() => {
+      setRateLimitRemaining(prev => {
+        if (prev <= 1) {
+          clearInterval(countdownRef.current);
+          setRateLimited(false);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
   };
 
   const handleSubmit = async (e) => {
@@ -112,9 +136,22 @@ function LoginUIAdmin() {
       return;
     }
 
+    const rateLimit = checkAdminLoginRateLimit();
+    if (!rateLimit.allowed) {
+      startRateLimitCountdown(rateLimit.remaining);
+      setErrors({ ...newErrors, general: `Too many login attempts. Please wait ${rateLimit.remaining} seconds before trying again.` });
+      return;
+    }
+
     setIsLoading(true);
-    const { success, user, admin, error } = await loginAdmin({ email, password });
+    const { success, user, admin, error, rateLimited: wasRateLimited, remaining } = await loginAdmin({ email, password });
     setIsLoading(false);
+
+    if (wasRateLimited) {
+      startRateLimitCountdown(remaining);
+      setErrors({ ...newErrors, general: error });
+      return;
+    }
 
     if (!success || !user || !admin) {
       let errorTitle = 'Login Error';
@@ -231,12 +268,18 @@ function LoginUIAdmin() {
                 </div>
               </div>
 
+              {errors.general && !showErrorModal && (
+                <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
+                  {errors.general}
+                </div>
+              )}
+
               <button
                 type="submit"
-                disabled={isLoading}
+                disabled={isLoading || rateLimited}
                 className="w-full mt-3 rounded-2xl bg-[#4285F4] py-3 px-6 text-sm font-semibold text-white shadow-lg shadow-[#4285F4]/30 transition hover:shadow-2xl hover:bg-[#357AE8] disabled:opacity-60"
               >
-                {isLoading ? 'Verifying credentials…' : 'Sign In'}
+                {isLoading ? 'Verifying credentials…' : rateLimited ? `Please wait ${rateLimitRemaining}s` : 'Sign In'}
               </button>
             </form>
           </div>

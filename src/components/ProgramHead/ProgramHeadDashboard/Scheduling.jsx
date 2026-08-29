@@ -10,6 +10,7 @@ import SimpleSelector from '../../SimpleSelector';
 import { getSchedules, createSchedule, updateSchedule, deleteSchedule } from '../../../api/schedules';
 import { getSubjects } from '../../../api/subjects';
 import { getFaculty } from '../../../api/faculty';
+import { getProgramHeadFaculty } from '../../../api/programHeadFaculty';
 import { getLocations } from '../../../api/location';
 import { getCourses, getColleges } from '../../../api/courses';
 import { getCourseSubjectOfferings } from '../../../api/courseSubjectOfferings';
@@ -304,56 +305,17 @@ function Scheduling({ programHeadData, scheduleIdToEdit, onScheduleEdited }) {
     return filtered;
   }, [programHeadData]);
 
-  // Filter faculty by program head's assigned program and active status
+  // Filter faculty by active status only — faculty is already scoped to this
+  // program head via getProgramHeadFaculty(programHeadData.id) at fetch time.
   useEffect(() => {
-    console.log('🔍 Faculty filtering triggered');
-    console.log('   programHeadData:', programHeadData);
-    console.log('   faculty count:', faculty?.length);
-    console.log('   faculty data:', faculty);
-    
-    if (!programHeadData?.program) {
-      console.log('⚠️ No program head program assigned');
-      setFilteredFaculty(faculty?.filter(f => f.is_active !== false) || []);
-      return;
-    }
-
-    if (!faculty || faculty.length === 0) {
-      console.log('⚠️ No faculty available');
-      setFilteredFaculty([]);
-      return;
-    }
-
-    const normalize = (str) => (str || '').trim().toLowerCase();
-    const targetProgram = normalize(programHeadData.program);
-    
-    console.log(`🎓 Program Head Program: "${programHeadData.program}" (normalized: "${targetProgram}")`);
-    console.log(`📋 Faculty list with programs:`);
-    faculty.forEach(fac => {
-      const isActive = fac.is_active !== false ? '✅ ACTIVE' : '❌ DISABLED';
-      console.log(`   - ${fac.first_name} ${fac.last_name}: program="${fac.program}" (normalized: "${normalize(fac.program)}") ${isActive}`);
-    });
-    
-    const filtered = faculty.filter(fac => {
-      // Only include faculty that are active (is_active !== false)
-      if (fac.is_active === false) {
-        console.log(`   ❌ ${fac.first_name} ${fac.last_name}: DISABLED - excluding from schedule creation`);
-        return false;
-      }
-      
-      const facProgram = normalize(fac.program);
-      const matches = facProgram === targetProgram;
-      console.log(`   ✓ ${fac.first_name} ${fac.last_name}: ${matches ? '✅ MATCH' : '❌ NO MATCH'}`);
-      return matches;
-    });
-
-    console.log(`👥 Total faculty available: ${faculty.length}`);
-    console.log(`👥 Active faculty filtered for this program: ${filtered.length}`, filtered.map(f => `${f.first_name} ${f.last_name}`));
-    
-    setFilteredFaculty(filtered);
-  }, [faculty, programHeadData?.program]);
+    const activeFaculty = (faculty || []).filter(f => f.is_active !== false);
+    setFilteredFaculty(activeFaculty);
+  }, [faculty]);
 
   useEffect(() => {
     if (!programHeadData?.id) {
+      setLoading(false);
+      setError('Program head profile not found. Please contact administration.');
       return;
     }
 
@@ -481,7 +443,7 @@ function Scheduling({ programHeadData, scheduleIdToEdit, onScheduleEdited }) {
             console.log('🔄 Faculty data changed, refreshing...', payload);
             showNotification('Faculty list updated', 'success');
             try {
-              const { data, error } = await getFaculty();
+              const { data, error } = await getProgramHeadFaculty(programHeadData.id);
               if (!error && data) {
                 setFaculty(data);
               }
@@ -700,7 +662,7 @@ function Scheduling({ programHeadData, scheduleIdToEdit, onScheduleEdited }) {
           getSubjects(),
           getCourses(),
           getLocations(),
-          getFaculty(),
+          phId ? getProgramHeadFaculty(phId) : getFaculty(),
           getColleges(),
           phId ? getSchedules({ created_by_program_head_id: phId }) : getSchedules()
         ]);
@@ -868,7 +830,7 @@ function Scheduling({ programHeadData, scheduleIdToEdit, onScheduleEdited }) {
       const [schedulesRes, subjectsRes, facultyRes, locationsRes, colleglesRes, coursesRes, offeringsRes] = await Promise.all([
         getSchedules({ created_by_program_head_id: programHeadData.id }),
         getSubjects(),
-        getFaculty(),
+        getProgramHeadFaculty(programHeadData.id),
         getLocations(),
         getColleges(),
         getCourses(),

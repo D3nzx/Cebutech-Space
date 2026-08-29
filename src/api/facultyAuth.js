@@ -109,7 +109,7 @@ export const registerFaculty = async ({ firstName, lastName, email, password, co
       .from('faculty')
       .select('id')
       .eq('email', email)
-      .single();
+      .maybeSingle();
 
     if (existingEmail) {
       return { success: false, error: 'Email already registered' };
@@ -121,9 +121,9 @@ export const registerFaculty = async ({ firstName, lastName, email, password, co
       .eq('user_type', 'faculty')
       .eq('status', 'pending')
       .eq('email', email)
-      .single();
+      .maybeSingle();
 
-    if (pendingFacultyError && pendingFacultyError.code !== 'PGRST116') {
+    if (pendingFacultyError) {
       return { success: false, error: pendingFacultyError.message };
     }
 

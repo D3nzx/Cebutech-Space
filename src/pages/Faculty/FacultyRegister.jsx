@@ -7,6 +7,7 @@ import { getColleges, getCourses } from '../../api/courses';
 import SimpleSelector from '../../components/SimpleSelector';
 import ProgramSelector from '../../components/ProgramSelector';
 import { useFormPersistence, getSavedFormData, useClearFormOnUnmount } from '../../hooks/useFormPersistence';
+import { getRegistrationErrorDetails } from '../../lib/registrationErrorUtils';
 
 function FacultyRegister() {
   const [email, setEmail] = useState('');
@@ -385,26 +386,9 @@ function FacultyRegister() {
       });
 
       if (!result.success) {
-        let errorTitle = 'Registration Error';
-        let errorMessage = result.error || 'Registration failed. Please try again or contact support if the problem persists.';
-        
-        if (result.error) {
-          const errorLower = result.error.toLowerCase();
-          
-          if (errorLower.includes('already registered') || errorLower.includes('duplicate key') || errorLower.includes('already exists')) {
-            errorTitle = 'Account Already Exists';
-            errorMessage = 'An account with this email address already exists. Please use a different email.';
-          } else if (errorLower.includes('row level security') || errorLower.includes('database permissions')) {
-            errorTitle = 'Database Configuration Error';
-            errorMessage = 'Unable to complete registration due to database configuration. Please contact your administrator.';
-          } else if (errorLower.includes('invalid')) {
-            errorTitle = 'Invalid Information';
-            errorMessage = result.error;
-          }
-        }
-        
-        setErrorModalTitle(errorTitle);
-        setErrorModalMessage(errorMessage);
+        const { title, message } = getRegistrationErrorDetails(result.error);
+        setErrorModalTitle(title);
+        setErrorModalMessage(message);
         setShowErrorModal(true);
         setIsLoading(false);
         return;

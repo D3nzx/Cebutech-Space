@@ -52,14 +52,20 @@ export async function createCollege(collegeData) {
 
 export async function updateCollege(id, collegeData) {
   try {
+    const updatePayload = {
+      college_name: collegeData.name,
+      college_code: collegeData.code,
+      description: collegeData.description || null,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (collegeData.displayOrder !== undefined && collegeData.displayOrder !== null && collegeData.displayOrder !== '') {
+      updatePayload.display_order = collegeData.displayOrder;
+    }
+
     const { data, error } = await supabase
       .from('colleges')
-      .update({
-        college_name: collegeData.name,
-        college_code: collegeData.code,
-        description: collegeData.description || null,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updatePayload)
       .eq('id', id)
       .select();
 

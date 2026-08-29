@@ -3,7 +3,7 @@ import { Bell, CheckCircle, AlertCircle, Clock, FileText } from 'lucide-react';
 import { supabase } from '../../../lib/supabaseClient';
 import { getNotifications, getUnreadNotificationsCount, markNotificationAsRead, markAllNotificationsAsRead } from '../../../api/notifications';
 import { getRequestById, updateRequestStatus, getRequestsForRole } from '../../../api/reportApprovals';
-import { notifyProgramHeadOnDecision } from '../../../api/notifications';
+import { notifyProgramHeadOnDecision, notifyDeanOnCampusDirectorDecision } from '../../../api/notifications';
 import ReportApprovalViewer from '../../Shared/ReportApprovalViewer';
 
 function CampusDirectorNotificationsPanel({ campusDirectorId, onOpenApproval }) {
@@ -143,13 +143,27 @@ function CampusDirectorNotificationsPanel({ campusDirectorId, onOpenApproval }) 
         comment: effectiveComment
       });
 
-      // Notify Program Head
-      await notifyProgramHeadOnDecision({
+      const phNotifResult = await notifyProgramHeadOnDecision({
         programHeadId: activeRequest.program_head_id,
         approvalId: activeRequest.id,
         status,
         comment: effectiveComment
       });
+      if (phNotifResult.error) {
+        console.error('Failed to notify program head:', phNotifResult.error);
+      }
+
+      if (activeRequest.dean_id) {
+        const deanNotifResult = await notifyDeanOnCampusDirectorDecision({
+          deanId: activeRequest.dean_id,
+          approvalId: activeRequest.id,
+          status,
+          comment: effectiveComment
+        });
+        if (deanNotifResult.error) {
+          console.error('Failed to notify dean:', deanNotifResult.error);
+        }
+      }
 
       // Refresh notifications
       await loadNotifications();

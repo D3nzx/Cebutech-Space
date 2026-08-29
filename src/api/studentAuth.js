@@ -97,7 +97,7 @@ export const registerStudent = async ({ firstName, lastName, email, password, co
       .from('students')
       .select('id')
       .eq('email', email)
-      .single();
+      .maybeSingle();
 
     if (existingEmail) {
       return { success: false, error: 'Email already registered' };
@@ -109,9 +109,9 @@ export const registerStudent = async ({ firstName, lastName, email, password, co
       .eq('user_type', 'student')
       .eq('status', 'pending')
       .eq('email', email)
-      .single();
+      .maybeSingle();
 
-    if (pendingStudentError && pendingStudentError.code !== 'PGRST116') {
+    if (pendingStudentError) {
       return { success: false, error: pendingStudentError.message };
     }
 

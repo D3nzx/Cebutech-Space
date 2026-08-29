@@ -22,20 +22,27 @@ class AdaptiveStorage {
     }
   }
 
-  getStorage() {
-    return this.isIncognito ? window.sessionStorage : window.localStorage;
-  }
-
   getItem(key) {
-    return this.getStorage().getItem(key);
+    if (key === 'sb-auth-token') {
+      return sessionStorage.getItem(key);
+    }
+    return this.isIncognito ? sessionStorage.getItem(key) : localStorage.getItem(key);
   }
 
   setItem(key, value) {
-    this.getStorage().setItem(key, value);
+    if (key === 'sb-auth-token') {
+      sessionStorage.setItem(key, value);
+    } else {
+      this.isIncognito ? sessionStorage.setItem(key, value) : localStorage.setItem(key, value);
+    }
   }
 
   removeItem(key) {
-    this.getStorage().removeItem(key);
+    if (key === 'sb-auth-token') {
+      sessionStorage.removeItem(key);
+    } else {
+      this.isIncognito ? sessionStorage.removeItem(key) : localStorage.removeItem(key);
+    }
   }
 }
 

@@ -8,6 +8,7 @@ import { getColleges, getCourses } from '../../api/courses';
 import SimpleSelector from '../../components/SimpleSelector';
 import ProgramSelector from '../../components/ProgramSelector';
 import { useFormPersistence, getSavedFormData, useClearFormOnUnmount } from '../../hooks/useFormPersistence';
+import { getRegistrationErrorDetails } from '../../lib/registrationErrorUtils';
 
 function Register() {
   const [email, setEmail] = useState('');
@@ -351,32 +352,10 @@ function Register() {
     const { user, error: signUpError } = await signUp({ email, password, firstName, lastName, college, program });
 
     if (signUpError) {
-      let errorTitle = 'Registration Error';
-      let errorMessage = 'Registration failed. Please try again or contact support if the problem persists.';
-      
       console.error('❌ SignUp Error Details:', signUpError);
-      
-      if (signUpError.message) {
-        errorMessage = signUpError.message;
-        if (signUpError.message.toLowerCase().includes('program head has already been assigned')) {
-          errorTitle = 'Program Head Already Assigned';
-          errorMessage = signUpError.message;
-        } else if (signUpError.message.toLowerCase().includes('user already registered')) {
-          errorTitle = 'Account Already Exists';
-          errorMessage = 'An account with this email address already exists. Please use a different email.';
-        } else if (signUpError.message.toLowerCase().includes('row level security')) {
-          errorTitle = 'Database Permission Error';
-          errorMessage = 'Unable to create profile. Please ensure the database is properly configured.';
-        } else if (signUpError.message.toLowerCase().includes('check constraint') || signUpError.message.toLowerCase().includes('program_heads_college_program_valid')) {
-          errorTitle = 'Invalid College/Program Combination';
-          errorMessage = 'The selected college and program combination is not valid. Please select valid options.';
-        } else if (signUpError.message.toLowerCase().includes('invalid')) {
-          errorTitle = 'Invalid Selection';
-          errorMessage = signUpError.message;
-        }
-      }
-      setErrorModalTitle(errorTitle);
-      setErrorModalMessage(errorMessage);
+      const { title, message } = getRegistrationErrorDetails(signUpError);
+      setErrorModalTitle(title);
+      setErrorModalMessage(message);
       setShowErrorModal(true);
       setIsLoading(false);
       return;

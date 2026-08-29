@@ -90,24 +90,21 @@ export const createNotification = async (notification) => {
       optionalInsertData.related_user_type = notification.relatedUserType;
     }
 
-    const payloads = [
-      { ...baseInsertData, ...optionalInsertData },
-      baseInsertData
-    ];
+    const primaryPayload = { ...baseInsertData, ...optionalInsertData };
+    const fallbackPayload = baseInsertData;
 
-    console.log('   Insert payloads:', payloads);
+    console.log('   Insert payload:', primaryPayload);
 
     let lastError = null;
-    for (const insertData of payloads) {
-      const { data, error } = await supabase
+
+    for (const insertData of [primaryPayload, fallbackPayload]) {
+      const { error } = await supabase
         .from('notifications')
-        .insert(insertData)
-        .select();
+        .insert(insertData);
 
       if (!error) {
         console.log('✅ Notification created successfully');
-        console.log('   Data:', data);
-        return { data: data?.[0], error: null };
+        return { data: null, error: null };
       }
 
       const isSchemaError = error?.code === '42703' || /column .* does not exist/i.test(error?.message || '') || /does not exist/i.test(error?.details || '');
@@ -137,21 +134,20 @@ export const createNotification = async (notification) => {
 
 export const markNotificationAsRead = async (notificationId) => {
   try {
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('notifications')
       .update({
         is_read: true,
         read_at: new Date().toISOString()
       })
-      .eq('id', notificationId)
-      .select();
+      .eq('id', notificationId);
 
     if (error) {
       console.error('❌ Error marking as read:', error);
       return { data: null, error };
     }
 
-    return { data: data?.[0], error: null };
+    return { data: null, error: null };
   } catch (error) {
     console.error('Error in markNotificationAsRead:', error);
     return { data: null, error };
@@ -161,7 +157,7 @@ export const markNotificationAsRead = async (notificationId) => {
 
 export const markAllNotificationsAsRead = async (recipientId, recipientType) => {
   try {
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('notifications')
       .update({
         is_read: true,
@@ -169,8 +165,7 @@ export const markAllNotificationsAsRead = async (recipientId, recipientType) => 
       })
       .eq('recipient_id', recipientId)
       .eq('recipient_type', recipientType)
-      .eq('is_read', false)
-      .select();
+      .eq('is_read', false);
 
     if (error) {
       console.error('❌ Error marking all as read:', error);
@@ -178,7 +173,7 @@ export const markAllNotificationsAsRead = async (recipientId, recipientType) => 
     }
 
     console.log('✅ All notifications marked as read');
-    return { data, error: null };
+    return { data: null, error: null };
   } catch (error) {
     console.error('Error in markAllNotificationsAsRead:', error);
     return { data: null, error };
@@ -324,28 +319,20 @@ export const notifyDeanForReportReview = async ({ deanId, approvalId, facultyLab
     const { data: deans } = await supabase.from('deans').select('id').limit(1).maybeSingle();
     actualDeanId = deans?.id;
   }
-  
+
   if (!actualDeanId) {
     console.warn('No dean found for notification');
     return { data: null, error: new Error('No dean found') };
   }
 
-  const { data, error } = await supabase
-    .from('notifications')
-    .insert({
-      recipient_id: actualDeanId,
-      recipient_type: 'dean',
-      notification_type: 'report_review',
-      title: 'Report review requested',
-      message: `Program Head sent reports for ${facultyLabel || 'faculty'} for review.`,
-      related_approval_request_id: approvalId,
-      is_read: false,
-      created_at: new Date().toISOString()
-    })
-    .select()
-    .single();
-
-  return { data, error };
+  return createNotification({
+    recipientId: actualDeanId,
+    recipientType: 'dean',
+    type: 'report_review',
+    title: 'Report review requested',
+    message: `Program Head sent reports for ${facultyLabel || 'faculty'} for review.`,
+    approvalRequestId: approvalId,
+  });
 };
 
 export const notifyCampusDirectorForReportReview = async ({ campusDirectorId, approvalId, facultyLabel }) => {
@@ -355,28 +342,20 @@ export const notifyCampusDirectorForReportReview = async ({ campusDirectorId, ap
     const { data: cds } = await supabase.from('campus_directors').select('id').limit(1).maybeSingle();
     actualCdId = cds?.id;
   }
-  
+
   if (!actualCdId) {
     console.warn('No campus director found for notification');
     return { data: null, error: new Error('No campus director found') };
   }
 
-  const { data, error } = await supabase
-    .from('notifications')
-    .insert({
-      recipient_id: actualCdId,
-      recipient_type: 'campus_director',
-      notification_type: 'report_review',
-      title: 'Report review requested',
-      message: `Dean forwarded reports for ${facultyLabel || 'faculty'} for approval.`,
-      related_approval_request_id: approvalId,
-      is_read: false,
-      created_at: new Date().toISOString()
-    })
-    .select()
-    .single();
-
-  return { data, error };
+  return createNotification({
+    recipientId: actualCdId,
+    recipientType: 'campus_director',
+    type: 'report_review',
+    title: 'Report review requested',
+    message: `Dean forwarded reports for ${facultyLabel || 'faculty'} for approval.`,
+    approvalRequestId: approvalId,
+  });
 };
 
 export const notifyProgramHeadOnDecision = async ({ programHeadId, approvalId, status, comment }) => {

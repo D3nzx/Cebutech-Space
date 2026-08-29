@@ -7,6 +7,7 @@ import { getColleges, getCourses } from '../../api/courses';
 import SimpleSelector from '../../components/SimpleSelector';
 import ProgramSelector from '../../components/ProgramSelector';
 import { useFormPersistence, getSavedFormData, useClearFormOnUnmount } from '../../hooks/useFormPersistence';
+import { getRegistrationErrorDetails } from '../../lib/registrationErrorUtils';
 
 function StudentRegister() {
   const [email, setEmail] = useState('');
@@ -436,14 +437,9 @@ function StudentRegister() {
       });
 
       if (!result.success) {
-        let errorTitle = 'Registration Error';
-        let errorMessage = result.error || 'Registration failed. Please try again or contact support if the problem persists.';
-        if (result.error && result.error.toLowerCase().includes('already registered')) {
-          errorTitle = 'Account Already Exists';
-          errorMessage = 'An account with this email address already exists. Please use a different email.';
-        }
-        setErrorModalTitle(errorTitle);
-        setErrorModalMessage(errorMessage);
+        const { title, message } = getRegistrationErrorDetails(result.error);
+        setErrorModalTitle(title);
+        setErrorModalMessage(message);
         setShowErrorModal(true);
         setIsLoading(false);
         return;

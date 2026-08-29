@@ -228,7 +228,7 @@ function DashboardPage() {
             .from('program_heads')
             .select('id, program_head_code')
             .eq('auth_user_id', currentUser.id)
-            .single();
+            .maybeSingle();
 
           console.log('📊 Query result:', { data: programHeadDataFetch, error: programHeadError });
 
@@ -278,23 +278,26 @@ function DashboardPage() {
           .from('program_heads')
           .select('*')
           .eq('auth_user_id', currentUser.id)
-          .single();
+          .maybeSingle();
 
         if (fullProgramHeadData) {
           setProgramHeadData(fullProgramHeadData);
           
-        
           if (fullProgramHeadData.is_active !== true) {
             console.warn('❌ Program Head account is inactive or pending approval');
             setAccessRestrictedMessage('Your account is inactive or pending approval. Please contact the administration for assistance.');
             setShowAccessRestrictedModal(true);
           }
-        } else if (fullFetchError) {
-          const errorCode = fullFetchError.code;
-          console.warn(`Program head record not found (code: ${errorCode}), continuing without it`);
-          setProgramHeadData(null);
         } else {
-          setProgramHeadData(null);
+          console.warn('❌ Program Head record not found, redirecting to login');
+          localStorage.removeItem('isAuthenticated');
+          localStorage.removeItem('isAdmin');
+          sessionStorage.removeItem('isAuthenticated');
+          sessionStorage.removeItem('isAdmin');
+          setIsLoading(false);
+          setUser(null);
+          navigate('/programhead/login', { replace: true });
+          return;
         }
 
         setUser(currentUser);

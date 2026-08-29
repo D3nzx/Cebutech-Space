@@ -372,20 +372,20 @@ CREATE TRIGGER trigger_update_courses_updated_at
     USING (auth.uid() = auth_user_id)
     WITH CHECK (auth.uid() = auth_user_id);
 
-  -- 2.5) Admin can update any program head profilehttp://localhost:5174/admin/dashboard
+  -- 2.5) Admins (not just any authenticated user) can update any program head profile
   DROP POLICY IF EXISTS "Admin can update any program head" ON public.program_heads;
-  CREATE POLICY "Admin can update any program head"
+  CREATE POLICY "Admins can update any program head"
     ON public.program_heads
     FOR UPDATE
-    USING (auth.role() = 'authenticated')
-    WITH CHECK (auth.role() = 'authenticated');
+    USING (public.is_admin())
+    WITH CHECK (public.is_admin());
 
-  -- 3) Allow creation of a profile during registration (anon users can insert their own profile)
+  -- 3) Profile creation is deferred to admin approval (see AdminNotificationsPanel.jsx), not self-insert
   DROP POLICY IF EXISTS "Program head can insert own profile" ON public.program_heads;
-  CREATE POLICY "Program head can insert own profile"
+  CREATE POLICY "Admins can insert program heads"
     ON public.program_heads
     FOR INSERT
-    WITH CHECK (true);
+    WITH CHECK (public.is_admin());
 
   -- 4) Service role / backend admin can manage all profiles
   DROP POLICY IF EXISTS "Service role full access to program_heads" ON public.program_heads;
@@ -394,12 +394,12 @@ CREATE TRIGGER trigger_update_courses_updated_at
     USING (auth.role() = 'service_role')
     WITH CHECK (auth.role() = 'service_role');
 
-  -- 5) Allow all authenticated users to read all program heads (for admin dashboard)
+  -- 5) Only admins can read all program heads (for admin dashboard)
   DROP POLICY IF EXISTS "Allow authenticated users to read all program heads" ON public.program_heads;
-  CREATE POLICY "Allow authenticated users to read all program heads"
+  CREATE POLICY "Admins can view all program heads"
     ON public.program_heads
     FOR SELECT
-    USING (auth.role() = 'authenticated');
+    USING (public.is_admin());
 
 -- ================= SOURCE: 04_admins.sql =================
 -- ============================================
@@ -444,6 +444,22 @@ CREATE INDEX IF NOT EXISTS idx_admins_admin_code ON public.admins(admin_code);
 -- Enable RLS
 ALTER TABLE public.admins ENABLE ROW LEVEL SECURITY;
 
+-- SECURITY DEFINER bypasses RLS internally, so this can be safely used
+-- inside a policy defined ON public.admins itself without causing
+-- infinite recursion (a plain EXISTS(SELECT ... FROM admins) inside an
+-- admins policy would re-trigger that table's own SELECT policies).
+CREATE OR REPLACE FUNCTION public.is_admin(uid uuid DEFAULT auth.uid())
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT EXISTS (SELECT 1 FROM public.admins WHERE auth_user_id = uid);
+$$;
+
+GRANT EXECUTE ON FUNCTION public.is_admin(uuid) TO authenticated, anon, service_role;
+
 -- RLS Policy: Admins can read their own profile
 DROP POLICY IF EXISTS "Admins can read own profile" ON public.admins;
 CREATE POLICY "Admins can read own profile"
@@ -459,12 +475,12 @@ CREATE POLICY "Admins can update own profile"
   USING (auth.uid() = auth_user_id)
   WITH CHECK (auth.uid() = auth_user_id);
 
--- RLS Policy: Allow authenticated users to read all admins
+-- RLS Policy: Only admins can read all admins
 DROP POLICY IF EXISTS "Allow authenticated read all admins" ON public.admins;
-CREATE POLICY "Allow authenticated read all admins"
+CREATE POLICY "Admins can view all admins"
   ON public.admins
   FOR SELECT
-  USING (auth.role() = 'authenticated');
+  USING (public.is_admin());
 
 -- RLS Policy: Service role full access
 DROP POLICY IF EXISTS "Service role full access admins" ON public.admins;
@@ -545,12 +561,20 @@ CREATE POLICY "Campus Directors can update own profile"
   USING (auth.uid() = auth_user_id)
   WITH CHECK (auth.uid() = auth_user_id);
 
--- RLS Policy: Allow authenticated users to read all campus directors
+-- RLS Policy: Only admins can read all campus directors
 DROP POLICY IF EXISTS "Allow authenticated read all campus directors" ON public.campus_directors;
-CREATE POLICY "Allow authenticated read all campus directors"
+CREATE POLICY "Admins can view all campus directors"
   ON public.campus_directors
   FOR SELECT
-  USING (auth.role() = 'authenticated');
+  USING (public.is_admin());
+
+-- RLS Policy: Admins can update any campus director (needed for the approval upsert flow)
+DROP POLICY IF EXISTS "Admins can update any campus director" ON public.campus_directors;
+CREATE POLICY "Admins can update any campus director"
+  ON public.campus_directors
+  FOR UPDATE
+  USING (public.is_admin())
+  WITH CHECK (public.is_admin());
 
 -- RLS Policy: Service role full access
 DROP POLICY IF EXISTS "Service role full access campus directors" ON public.campus_directors;
@@ -559,12 +583,12 @@ CREATE POLICY "Service role full access campus directors"
   USING (auth.role() = 'service_role')
   WITH CHECK (auth.role() = 'service_role');
 
--- RLS Policy: Allow ANYONE to INSERT during registration/approval flow
+-- RLS Policy: Profile creation is deferred to admin approval, not self-insert
 DROP POLICY IF EXISTS "Allow campus director registration insert" ON public.campus_directors;
-CREATE POLICY "Allow campus director registration insert"
+CREATE POLICY "Admins can insert campus directors"
   ON public.campus_directors
   FOR INSERT
-  WITH CHECK (true);
+  WITH CHECK (public.is_admin());
 
 -- Trigger to update updated_at
 CREATE OR REPLACE FUNCTION public.update_campus_directors_updated_at()
@@ -703,12 +727,47 @@ execute FUNCTION update_deans_updated_at ();
 -- Enable RLS
 ALTER TABLE public.deans ENABLE ROW LEVEL SECURITY;
 
--- RLS Policy: Allow ANYONE to INSERT during registration/approval flow
+-- RLS Policy: Deans can read/update their own profile (previously missing entirely)
+DROP POLICY IF EXISTS "Deans can read own profile" ON public.deans;
+CREATE POLICY "Deans can read own profile"
+  ON public.deans
+  FOR SELECT
+  USING (auth.uid() = auth_user_id);
+
+DROP POLICY IF EXISTS "Deans can update own profile" ON public.deans;
+CREATE POLICY "Deans can update own profile"
+  ON public.deans
+  FOR UPDATE
+  USING (auth.uid() = auth_user_id)
+  WITH CHECK (auth.uid() = auth_user_id);
+
+-- RLS Policy: Admins can view/update all deans
+DROP POLICY IF EXISTS "Admins can view all deans" ON public.deans;
+CREATE POLICY "Admins can view all deans"
+  ON public.deans
+  FOR SELECT
+  USING (public.is_admin());
+
+DROP POLICY IF EXISTS "Admins can update any dean" ON public.deans;
+CREATE POLICY "Admins can update any dean"
+  ON public.deans
+  FOR UPDATE
+  USING (public.is_admin())
+  WITH CHECK (public.is_admin());
+
+-- RLS Policy: Service role full access
+DROP POLICY IF EXISTS "Service role full access deans" ON public.deans;
+CREATE POLICY "Service role full access deans"
+  ON public.deans
+  USING (auth.role() = 'service_role')
+  WITH CHECK (auth.role() = 'service_role');
+
+-- RLS Policy: Profile creation is deferred to admin approval, not self-insert
 DROP POLICY IF EXISTS "Allow dean registration insert" ON public.deans;
-CREATE POLICY "Allow dean registration insert"
+CREATE POLICY "Admins can insert deans"
   ON public.deans
   FOR INSERT
-  WITH CHECK (true);
+  WITH CHECK (public.is_admin());
 
 
 -- ================= SOURCE: 05_faculty.sql =================
@@ -883,12 +942,12 @@ CREATE POLICY "Service role can insert faculty"
   FOR INSERT
   WITH CHECK (auth.role() = 'service_role');
 
--- RLS Policy: Allow ANYONE to INSERT during registration/approval flow
+-- RLS Policy: Profile creation is deferred to admin approval, not self-insert
 DROP POLICY IF EXISTS "Allow faculty registration insert" ON public.faculty;
-CREATE POLICY "Allow faculty registration insert"
+CREATE POLICY "Admins can insert faculty"
   ON public.faculty
   FOR INSERT
-  WITH CHECK (true);
+  WITH CHECK (EXISTS (SELECT 1 FROM public.admins WHERE admins.auth_user_id = auth.uid()));
 
 -- RLS Policy: Faculty can read their own profile
 DROP POLICY IF EXISTS "Faculty can read own profile" ON public.faculty;
@@ -905,20 +964,20 @@ CREATE POLICY "Faculty can update own profile"
   USING (auth.uid() = auth_user_id)
   WITH CHECK (auth.uid() = auth_user_id);
 
--- RLS Policy: Admin can update any faculty profile (including is_active status)
+-- RLS Policy: Admins (not just any authenticated user) can update any faculty profile
 DROP POLICY IF EXISTS "Admin can update any faculty" ON public.faculty;
-CREATE POLICY "Admin can update any faculty"
+CREATE POLICY "Admins can update any faculty"
   ON public.faculty
   FOR UPDATE
-  USING (auth.role() = 'authenticated')
-  WITH CHECK (auth.role() = 'authenticated');
+  USING (public.is_admin())
+  WITH CHECK (public.is_admin());
 
--- RLS Policy: Allow authenticated users to read all faculty
+-- RLS Policy: Only admins can read all faculty
 DROP POLICY IF EXISTS "Allow authenticated read all faculty" ON public.faculty;
-CREATE POLICY "Allow authenticated read all faculty"
+CREATE POLICY "Admins can view all faculty"
   ON public.faculty
   FOR SELECT
-  USING (auth.role() = 'authenticated');
+  USING (public.is_admin());
 
 -- RLS Policy: Service role full access
 DROP POLICY IF EXISTS "Service role full access faculty" ON public.faculty;
@@ -1107,13 +1166,12 @@ CREATE POLICY "Service role can insert students"
   FOR INSERT
   WITH CHECK (auth.role() = 'service_role');
 
--- RLS Policy: Allow ANYONE to INSERT during registration
--- This is the KEY policy that allows registration to work
+-- RLS Policy: Profile creation is deferred to admin approval, not self-insert
 DROP POLICY IF EXISTS "Allow student registration insert" ON public.students;
-CREATE POLICY "Allow student registration insert"
+CREATE POLICY "Admins can insert students"
   ON public.students
   FOR INSERT
-  WITH CHECK (true);
+  WITH CHECK (EXISTS (SELECT 1 FROM public.admins WHERE admins.auth_user_id = auth.uid()));
 
 -- RLS Policy: Students can read their own record
 DROP POLICY IF EXISTS "Students can read own record" ON public.students;
@@ -1148,12 +1206,12 @@ CREATE POLICY "Admin can update any student"
     )
   );
 
--- RLS Policy: Allow authenticated users to read all students
+-- RLS Policy: Only admins can read all students
 DROP POLICY IF EXISTS "Allow authenticated read all students" ON public.students;
-CREATE POLICY "Allow authenticated read all students"
+CREATE POLICY "Admins can view all students"
   ON public.students
   FOR SELECT
-  USING (auth.role() = 'authenticated');
+  USING (public.is_admin());
 
 -- RLS Policy: Service role full access
 DROP POLICY IF EXISTS "Service role full access students" ON public.students;
@@ -1897,14 +1955,22 @@ CREATE POLICY "Program Heads can update their own notifications"
   );
 
 -- Program Heads can delete any notifications
-CREATE POLICY "Program Heads can delete notifications"
+DROP POLICY IF EXISTS "Program Heads can delete notifications" ON notifications;
+CREATE POLICY "Recipients and admins can delete their notifications"
   ON notifications FOR DELETE
-  USING (true);
+  USING (
+    (recipient_type = 'faculty' AND recipient_id IN (SELECT id FROM faculty WHERE auth_user_id = auth.uid()))
+    OR (recipient_type = 'program_head' AND recipient_id IN (SELECT id FROM program_heads WHERE auth_user_id = auth.uid()))
+    OR (recipient_type = 'dean' AND recipient_id IN (SELECT id FROM deans WHERE auth_user_id = auth.uid()))
+    OR (recipient_type = 'campus_director' AND recipient_id IN (SELECT id FROM campus_directors WHERE auth_user_id = auth.uid()))
+    OR (recipient_type = 'admin' AND recipient_id IN (SELECT id FROM admins WHERE auth_user_id = auth.uid()))
+    OR public.is_admin()
+  );
 
--- Anyone can insert notifications (for system-generated notifications)
-CREATE POLICY "Anyone can create notifications"
+-- Authenticated users can insert notifications (blocks fully anonymous inserts)
+CREATE POLICY "Authenticated users can create notifications"
   ON notifications FOR INSERT
-  WITH CHECK (true);
+  WITH CHECK (auth.role() = 'authenticated' OR auth.role() = 'service_role');
 
 -- Service role can do everything
 CREATE POLICY "Service role has full access"
@@ -1926,11 +1992,14 @@ BEFORE UPDATE ON notifications
 FOR EACH ROW
 EXECUTE FUNCTION update_notifications_timestamp();
 
--- CRITICAL FIX: Disable RLS on notifications table
--- RLS was blocking INSERT operations even with correct policies
--- Application filters by recipient_id + recipient_type in all queries
--- so database-level RLS is not necessary
-ALTER TABLE notifications DISABLE ROW LEVEL SECURITY;
+-- RLS re-enabled (previously disabled here). Recipient-scoped SELECT/UPDATE
+-- policies above already correctly restrict access per role; the open
+-- DELETE policy and disabled RLS were the actual gaps, both fixed above.
+-- NOTE: src/api/notifications.js chains `.select()` after insert/update; if
+-- that trailing read fails for cross-user notifications (e.g. faculty
+-- notifying a program head), remove the `.select()` calls there instead of
+-- disabling RLS again.
+
 
 
 -- ================= SOURCE: 13_report_approval_requests.sql =================
@@ -2231,7 +2300,7 @@ CREATE POLICY "Admins can update their own notifications"
 
 -- Allow service role to insert notifications for admins (for system-generated notifications)
 -- This is already covered by the "Service role has full access" policy, but explicit for clarity
--- The existing "Anyone can create notifications" policy should handle insertions
+-- The "Authenticated users can create notifications" policy (defined earlier) handles other inserts
 
 
 -- ================= SOURCE: 14_report_approval_comments.sql =================
@@ -2376,7 +2445,14 @@ CREATE INDEX IF NOT EXISTS idx_pending_registrations_status ON public.pending_re
 -- Enable RLS
 ALTER TABLE public.pending_registrations ENABLE ROW LEVEL SECURITY;
 
--- Allow anyone to submit a registration
+-- Allow anyone to submit a registration.
+-- NOTE: this app requires email confirmation, so supabase.auth.signUp()
+-- returns no active session (auth.uid() is NULL) until the user confirms --
+-- createPendingRegistration() runs immediately after signUp(), before any
+-- session exists, so this CANNOT be scoped to auth.uid() = auth_user_id.
+-- auth_user_id is a UNIQUE FK to auth.users(id), which still prevents
+-- duplicate/garbage rows for a given user.
+DROP POLICY IF EXISTS "Users can create own pending registration" ON public.pending_registrations;
 DROP POLICY IF EXISTS "Anyone can create pending registrations" ON public.pending_registrations;
 CREATE POLICY "Anyone can create pending registrations"
   ON public.pending_registrations
@@ -2603,5 +2679,12 @@ SELECT id, 'Bachelor of Science in Hospitality Management', 'BSHM', 'Bachelor of
 FROM public.colleges 
 WHERE college_name = 'College of Technology, Management, and Entrepreneurship'
 ON CONFLICT DO NOTHING;
+
+
+-- NOTE: Database triggers for schedule notifications were removed because
+-- createNotification() now inserts without a trailing .select(), so RLS
+-- no longer blocks the frontend notification path. Keeping triggers here
+-- would cause duplicate notifications (frontend + trigger). If you need a
+-- DB-level safety net again, add it back together with deduplication logic.
 
 

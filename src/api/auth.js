@@ -85,9 +85,9 @@ export async function checkProgramHeadExists(college, program) {
       .select('id, email, first_name, last_name')
       .eq('college', college)
       .eq('program', program)
-      .single();
+      .maybeSingle();
 
-    if (error && error.code !== 'PGRST116') {
+    if (error) {
       console.error('Error checking for existing program head:', error);
       return { exists: false, error };
     }
@@ -147,9 +147,9 @@ export async function signUp({ email, password, firstName, lastName, college, pr
       .eq('status', 'pending')
       .eq('college', collegeName)
       .eq('program', programName)
-      .single();
+      .maybeSingle();
 
-    if (pendingProgramHeadError && pendingProgramHeadError.code !== 'PGRST116') {
+    if (pendingProgramHeadError) {
       console.error('Error checking pending program head registrations:', pendingProgramHeadError);
       return { user: null, error: pendingProgramHeadError };
     }
@@ -246,9 +246,9 @@ export async function signUpDean({ email, password, firstName, lastName }) {
       .select('id')
       .eq('user_type', 'dean')
       .eq('status', 'pending')
-      .single();
+      .maybeSingle();
 
-    if (pendingDeanError && pendingDeanError.code !== 'PGRST116') {
+    if (pendingDeanError) {
       console.error('Error checking pending dean registrations:', pendingDeanError);
       return { user: null, error: pendingDeanError };
     }
@@ -618,9 +618,9 @@ export async function signUpCampusDirector({ email, password, firstName, lastNam
       .select('id')
       .eq('user_type', 'campus_director')
       .eq('status', 'pending')
-      .single();
+      .maybeSingle();
 
-    if (pendingCampusDirectorError && pendingCampusDirectorError.code !== 'PGRST116') {
+    if (pendingCampusDirectorError) {
       console.error('Error checking pending campus director registrations:', pendingCampusDirectorError);
       return { user: null, error: pendingCampusDirectorError };
     }

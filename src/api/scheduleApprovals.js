@@ -247,7 +247,7 @@ export const submitScheduleApproval = async (approvalId, status, response) => {
       });
 
       const notificationType = dbStatus === 'approved' ? 'schedule_approved' : dbStatus === 'rejected' ? 'schedule_rejected' : 'change_requested';
-      const { data: notifData, error: notifError } = await createNotification({
+      const { error: notifError } = await createNotification({
         recipientId: approval.program_head_id,
         recipientType: 'program_head',
         type: notificationType,
@@ -266,7 +266,6 @@ export const submitScheduleApproval = async (approvalId, status, response) => {
         console.error('   Error details:', notifError.details);
       } else {
         console.log('✅ Notification created and sent to Program Head immediately');
-        console.log('   Notification ID:', notifData?.id);
         console.log('   Status:', dbStatus);
         console.log('   Real-time event will be broadcast to Program Head dashboard');
       }

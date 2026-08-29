@@ -39,8 +39,8 @@ function App() {
       <ErrorBoundary>
         <Suspense fallback={<LoadingFallback />}>
           <Routes>
-          {/* Default route - redirect to Program Head login */}
-          <Route path="/" element={<Navigate to="/programhead/login" replace />} />
+          {/* Default route - redirect to Admin login */}
+          <Route path="/" element={<Navigate to="/admin/login" replace />} />
 
           {/* Email Confirmation routes - MUST be BEFORE other routes */}
           {/* This is the redirect URL that Supabase will use after email confirmation */}
@@ -55,7 +55,14 @@ function App() {
 
           {/* Admin Routes */}
           <Route path="/admin/login" element={<LoginUIAdmin />} />
-          <Route path="/admin/dashboard" element={<DashboardUIAdmin />} />
+          <Route
+            path="/admin/dashboard"
+            element={
+              <ProtectedRoute redirectTo="/admin/login" requireAdmin>
+                <DashboardUIAdmin />
+              </ProtectedRoute>
+            }
+          />
           <Route path="/admin/selection" element={<Navigate to="/programhead/login" replace />} />
           <Route path="/admin" element={<Navigate to="/admin/login" replace />} />
 

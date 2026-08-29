@@ -352,9 +352,8 @@ function FacultySchedule({ facultyData, scheduleIdToApprove, onScheduleApprovalM
           const notification = payload.new;
           console.log('🔔 New notification received:', notification);
           
-          if (notification.notification_type === 'schedule_assigned') {
-            console.log('📬 New schedule assigned - refreshing pending approvals...');
-            // Refresh pending approvals to show new schedule
+          if (notification.notification_type === 'schedule_assigned' || notification.notification_type === 'schedule_updated') {
+            console.log('📬 New schedule assigned/updated - refreshing pending approvals...');
             await fetchPendingApprovals();
           }
         }

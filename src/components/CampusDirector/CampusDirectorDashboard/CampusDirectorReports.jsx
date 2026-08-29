@@ -10,7 +10,7 @@ import ReportsPrintView from '../../Shared/ReportsPrintView';
 const ctuCcFormat = new URL('../../../assets/images/CTU CC FORMAT.png', import.meta.url).href;
 import ReportApprovalViewer from '../../Shared/ReportApprovalViewer';
 import { getRequestsForRole, updateRequestStatus } from '../../../api/reportApprovals';
-import { notifyProgramHeadOnDecision } from '../../../api/notifications';
+import { notifyProgramHeadOnDecision, notifyDeanOnCampusDirectorDecision } from '../../../api/notifications';
 
 function CampusDirectorReports({ campusDirectorData }) {
   const [schedules, setSchedules] = useState([]);
@@ -705,12 +705,27 @@ function CampusDirectorReports({ campusDirectorData }) {
       comment: effectiveComment
     });
 
-    await notifyProgramHeadOnDecision({
+    const phNotifResult = await notifyProgramHeadOnDecision({
       programHeadId: activeRequest.program_head_id,
       approvalId: activeRequest.id,
       status,
       comment: effectiveComment
     });
+    if (phNotifResult.error) {
+      console.error('Failed to notify program head:', phNotifResult.error);
+    }
+
+    if (activeRequest.dean_id) {
+      const deanNotifResult = await notifyDeanOnCampusDirectorDecision({
+        deanId: activeRequest.dean_id,
+        approvalId: activeRequest.id,
+        status,
+        comment: effectiveComment
+      });
+      if (deanNotifResult.error) {
+        console.error('Failed to notify dean:', deanNotifResult.error);
+      }
+    }
 
     const refreshed = await getRequestsForRole('campus_director', campusDirectorData?.id);
     setApprovalRequests(refreshed.data || []);
