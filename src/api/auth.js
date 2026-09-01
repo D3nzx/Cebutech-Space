@@ -1,5 +1,7 @@
 import { supabase } from '../lib/supabaseClient';
 import { notifyAdminForRegistration } from './notifications';
+import { validatePassword } from '../lib/passwordValidator';
+import { checkLoginRateLimit, recordLoginAttempt, clearLoginAttempts } from './rateLimit';
 
 
 const generateUuid = () => {
@@ -106,6 +108,16 @@ export async function checkProgramHeadExists(college, program) {
 
 export async function signUp({ email, password, firstName, lastName, college, program }) {
   try {
+    // Validate password first
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      return {
+        user: null,
+        error: {
+          message: 'Password requirements: ' + passwordValidation.errors.join(', ')
+        }
+      };
+    }
     
     let collegeName = college;
     let programName = program;
@@ -230,6 +242,16 @@ export async function checkDeanExists() {
 
 export async function signUpDean({ email, password, firstName, lastName }) {
   try {
+    // Validate password first
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      return {
+        data: null,
+        error: {
+          message: 'Password requirements: ' + passwordValidation.errors.join(', ')
+        }
+      };
+    }
     const { exists } = await checkDeanExists();
     if (exists) {
       return {
@@ -389,6 +411,16 @@ export async function signIn({ email, password }) {
 
 export const loginProgramHead = async ({ email, password }) => {
   try {
+    // Check rate limiting first
+    const rateLimit = checkLoginRateLimit(email);
+    if (!rateLimit.allowed) {
+      return {
+        success: false,
+        error: `Too many login attempts. Please wait ${rateLimit.remaining} seconds before trying again.`,
+        rateLimited: true,
+        remaining: rateLimit.remaining
+      };
+    }
     
     const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
       email,
@@ -396,6 +428,7 @@ export const loginProgramHead = async ({ email, password }) => {
     });
 
     if (authError) {
+      recordLoginAttempt(email);
       return { success: false, error: authError.message };
     }
 
@@ -445,6 +478,8 @@ export const loginProgramHead = async ({ email, password }) => {
 
     console.log('✅ Program Head account is active');
 
+    // Clear rate limiting on successful login
+    clearLoginAttempts(email);
     
     sessionStorage.setItem('userType', 'program_head');
     sessionStorage.setItem('isAuthenticated', 'true');
@@ -467,12 +502,24 @@ export const loginProgramHead = async ({ email, password }) => {
 
 export const loginDean = async ({ email, password }) => {
   try {
+    // Check rate limiting first
+    const rateLimit = checkLoginRateLimit(email);
+    if (!rateLimit.allowed) {
+      return {
+        success: false,
+        error: `Too many login attempts. Please wait ${rateLimit.remaining} seconds before trying again.`,
+        rateLimited: true,
+        remaining: rateLimit.remaining
+      };
+    }
+
     const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
     if (authError) {
+      recordLoginAttempt(email);
       return { success: false, error: authError.message };
     }
 
@@ -509,6 +556,9 @@ export const loginDean = async ({ email, password }) => {
       await signOutSilently();
       return { success: false, error: 'Your account is inactive. It may be pending administrator approval or disabled. Please contact the administrator for assistance.' };
     }
+
+    // Clear rate limiting on successful login
+    clearLoginAttempts(email);
 
     sessionStorage.setItem('userType', 'dean');
     sessionStorage.setItem('isAuthenticated', 'true');
@@ -602,6 +652,16 @@ export async function checkCampusDirectorExists() {
 
 export async function signUpCampusDirector({ email, password, firstName, lastName }) {
   try {
+    // Validate password first
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      return {
+        data: null,
+        error: {
+          message: 'Password requirements: ' + passwordValidation.errors.join(', ')
+        }
+      };
+    }
     const { exists } = await checkCampusDirectorExists();
     if (exists) {
       return {
@@ -674,12 +734,24 @@ export async function signUpCampusDirector({ email, password, firstName, lastNam
 
 export const loginCampusDirector = async ({ email, password }) => {
   try {
+    // Check rate limiting first
+    const rateLimit = checkLoginRateLimit(email);
+    if (!rateLimit.allowed) {
+      return {
+        success: false,
+        error: `Too many login attempts. Please wait ${rateLimit.remaining} seconds before trying again.`,
+        rateLimited: true,
+        remaining: rateLimit.remaining
+      };
+    }
+
     const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
     if (authError) {
+      recordLoginAttempt(email);
       return { success: false, error: authError.message };
     }
 
@@ -716,6 +788,9 @@ export const loginCampusDirector = async ({ email, password }) => {
       await signOutSilently();
       return { success: false, error: 'Your account is inactive. It may be pending administrator approval or disabled. Please contact the administrator for assistance.' };
     }
+
+    // Clear rate limiting on successful login
+    clearLoginAttempts(email);
 
     sessionStorage.setItem('userType', 'campus_director');
     sessionStorage.setItem('isAuthenticated', 'true');

@@ -1,9 +1,21 @@
 import { supabase } from '../lib/supabaseClient';
 import { createPendingRegistration } from './auth';
+import { checkLoginRateLimit, recordLoginAttempt, clearLoginAttempts } from './rateLimit';
+import { validatePassword } from '../lib/passwordValidator';
 
 
 export const loginFaculty = async ({ email, password }) => {
   try {
+    // Check rate limiting first
+    const rateLimit = checkLoginRateLimit(email);
+    if (!rateLimit.allowed) {
+      return {
+        success: false,
+        error: `Too many login attempts. Please wait ${rateLimit.remaining} seconds before trying again.`,
+        rateLimited: true,
+        remaining: rateLimit.remaining
+      };
+    }
     
     const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
       email,
@@ -11,6 +23,7 @@ export const loginFaculty = async ({ email, password }) => {
     });
 
     if (authError) {
+      recordLoginAttempt(email);
       return { success: false, error: authError.message };
     }
 
@@ -70,6 +83,8 @@ export const loginFaculty = async ({ email, password }) => {
 
     console.log('✅ Faculty account is active');
 
+    // Clear rate limiting on successful login
+    clearLoginAttempts(email);
     
     sessionStorage.setItem('userType', 'faculty');
     sessionStorage.setItem('isAuthenticated', 'true');
@@ -104,6 +119,14 @@ const signOutSilently = async () => {
 
 export const registerFaculty = async ({ firstName, lastName, email, password, college, program }) => {
   try {
+    // Validate password first
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      return {
+        success: false,
+        error: 'Password requirements: ' + passwordValidation.errors.join(', ')
+      };
+    }
     
     const { data: existingEmail } = await supabase
       .from('faculty')
